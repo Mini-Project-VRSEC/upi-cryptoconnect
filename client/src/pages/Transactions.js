@@ -1,5 +1,6 @@
 // src/pages/Transactions.js
 import React, { useState, useEffect } from 'react';
+import transactionService from '../services/transactionService';
 import './Transactions.css';
 
 const Transactions = () => {
@@ -8,24 +9,23 @@ const Transactions = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Placeholder for API call to fetch transactions
-    // This would be replaced with actual API call
-    
-    // Simulate API call delay
-    setTimeout(() => {
-      // Mock data
-      setTransactions([
-        { id: 1, type: 'deposit', amount: 5000, currency: 'INR', date: '2025-04-10', status: 'completed' },
-        { id: 2, type: 'withdrawal', amount: 2000, currency: 'INR', date: '2025-04-08', status: 'completed' },
-        { id: 3, type: 'convert', amount: 3000, fromCurrency: 'INR', toCurrency: 'BTC', date: '2025-04-05', status: 'completed' },
-        { id: 4, type: 'deposit', amount: 10000, currency: 'INR', date: '2025-04-01', status: 'completed' },
-        { id: 5, type: 'withdrawal', amount: 0.01, currency: 'BTC', date: '2025-03-28', status: 'completed' },
-        { id: 6, type: 'convert', amount: 5000, fromCurrency: 'INR', toCurrency: 'ETH', date: '2025-03-25', status: 'completed' },
-        { id: 7, type: 'deposit', amount: 0.5, currency: 'ETH', date: '2025-03-20', status: 'completed' },
-        { id: 8, type: 'withdrawal', amount: 1500, currency: 'INR', date: '2025-03-15', status: 'pending' }
-      ]);
-      setLoading(false);
-    }, 1000);
+    // Fetch transactions from API
+    const fetchTransactions = async () => {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem('userToken');
+        if (!token) return;
+        
+        const data = await transactionService.getTransactions(token);
+        setTransactions(data);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching transactions:', error);
+        setLoading(false);
+      }
+    };
+
+    fetchTransactions();
   }, []);
 
   const filteredTransactions = transactions.filter(tx => {
@@ -39,11 +39,25 @@ const Transactions = () => {
         return `Deposited ${tx.currency === 'INR' ? '₹' + tx.amount.toLocaleString() : tx.amount + ' ' + tx.currency}`;
       case 'withdrawal':
         return `Withdrew ${tx.currency === 'INR' ? '₹' + tx.amount.toLocaleString() : tx.amount + ' ' + tx.currency}`;
-      case 'convert':
-        return `Converted ${tx.fromCurrency === 'INR' ? '₹' + tx.amount.toLocaleString() : tx.amount + ' ' + tx.fromCurrency} to ${tx.toCurrency}`;
+      case 'exchange':
+        if (tx.exchangeData && tx.exchangeData.to) {
+          return `Converted ${tx.currency === 'INR' ? '₹' + tx.amount.toLocaleString() : tx.amount + ' ' + tx.currency} to ${tx.exchangeData.to.toUpperCase()}`;
+        } else if (tx.exchangeData && tx.exchangeData.from) {
+          return `Received ${tx.currency === 'INR' ? '₹' + tx.amount.toLocaleString() : tx.amount + ' ' + tx.currency} from ${tx.exchangeData.from.toUpperCase()}`;
+        }
+        return `Exchanged ${tx.currency === 'INR' ? '₹' + tx.amount.toLocaleString() : tx.amount + ' ' + tx.currency}`;
       default:
-        return 'Transaction';
+        return `Transaction: ${tx.currency === 'INR' ? '₹' + tx.amount.toLocaleString() : tx.amount + ' ' + tx.currency}`;
     }
+  };
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-IN', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
   };
 
   return (
@@ -75,8 +89,8 @@ const Transactions = () => {
               Withdrawals
             </button>
             <button 
-              className={`filter-button ${filter === 'convert' ? 'active' : ''}`}
-              onClick={() => setFilter('convert')}
+              className={`filter-button ${filter === 'exchange' ? 'active' : ''}`}
+              onClick={() => setFilter('exchange')}
             >
               Conversions
             </button>
@@ -100,8 +114,8 @@ const Transactions = () => {
               </thead>
               <tbody>
                 {filteredTransactions.map((tx) => (
-                  <tr key={tx.id}>
-                    <td>{tx.date}</td>
+                  <tr key={tx._id}>
+                    <td>{formatDate(tx.createdAt)}</td>
                     <td style={{textTransform: 'capitalize'}}>{tx.type}</td>
                     <td>{renderTransactionDetails(tx)}</td>
                     <td>

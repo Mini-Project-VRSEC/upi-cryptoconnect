@@ -3,48 +3,44 @@ import axios from 'axios';
 
 const API_URL = '/api/transactions';
 
-// Get transaction history
-const getTransactionHistory = async (token) => {
-  const config = {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  };
+// Create a new transaction
+const createTransaction = async (token, transactionData) => {
+  try {
+    const config = {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    };
 
-  const response = await axios.get(API_URL, config);
-  return response.data;
+    const response = await axios.post(API_URL, transactionData, config);
+    return response.data;
+  } catch (error) {
+    console.error('Error creating transaction:', error.response?.data || error.message);
+    throw error;
+  }
 };
 
-// Create INR transaction
-const createINRTransaction = async (token, transactionData) => {
-  const config = {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  };
+// Get all transactions
+const getTransactions = async (token) => {
+  try {
+    const config = {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    };
 
-  const response = await axios.post(`${API_URL}/inr`, transactionData, config);
-  return response.data;
-};
-
-// Create crypto transaction
-const createCryptoTransaction = async (token, transactionData) => {
-  const config = {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  };
-
-  const response = await axios.post(`${API_URL}/crypto`, transactionData, config);
-  return response.data;
+    const response = await axios.get(API_URL, config);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching transactions:', error.response?.data || error.message);
+    throw error;
+  }
 };
 
 const transactionService = {
-  getTransactionHistory,
-  createINRTransaction,
-  createCryptoTransaction,
+  createTransaction,
+  getTransactions,
 };
 
 export default transactionService;

@@ -21,8 +21,11 @@ const transactionSchema = new mongoose.Schema({
   },
   currency: {
     type: String,
-    enum: ['INR', 'ETH', 'USDT', 'USDC', 'DAI', 'BTC'],
-    required: true
+    enum: ['INR', 'ETH', 'USDT', 'USDC', 'DAI', 'BTC', 'inr', 'eth', 'usdt', 'usdc', 'dai', 'btc'],
+    required: true,
+    set: function(val) {
+      return val.toUpperCase(); // Automatically convert to uppercase
+    }
   },
   type: {
     type: String,

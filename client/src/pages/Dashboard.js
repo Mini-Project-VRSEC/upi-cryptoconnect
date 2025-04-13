@@ -1,6 +1,6 @@
 // src/pages/Dashboard.js
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import './Dashboard.css';
 
 const Dashboard = () => {
@@ -11,6 +11,7 @@ const Dashboard = () => {
   
   const [recentTransactions, setRecentTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     // Placeholder for API calls to fetch dashboard data
@@ -33,6 +34,27 @@ const Dashboard = () => {
       setLoading(false);
     }, 800);
   }, []);
+
+  // Handle quick action clicks
+  const handleQuickAction = (action) => {
+    // Navigate to wallet page with specific tab
+    switch(action) {
+      case 'deposit':
+        navigate('/wallet', { state: { activeTab: 'deposit' } });
+        break;
+      case 'withdraw':
+        navigate('/wallet', { state: { activeTab: 'withdraw' } });
+        break;
+      case 'convert':
+        navigate('/wallet', { state: { activeTab: 'balance' }, showConvert: true });
+        break;
+      case 'history':
+        navigate('/transactions');
+        break;
+      default:
+        navigate('/wallet');
+    }
+  };
 
   return (
     <div className="dashboard">
@@ -58,10 +80,37 @@ const Dashboard = () => {
         <div className="quick-actions-card">
           <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
           <div className="quick-actions">
-            <Link to="/deposit" className="action-button">Deposit</Link>
-            <Link to="/withdraw" className="action-button">Withdraw</Link>
-            <Link to="/convert" className="action-button">Convert</Link>
-            <Link to="/transactions" className="action-button">History</Link>
+            <button 
+              className="action-button" 
+              onClick={() => handleQuickAction('deposit')}
+            >
+              <div className="action-icon">💰</div>
+              <div className="action-label">Deposit</div>
+            </button>
+            
+            <button 
+              className="action-button"
+              onClick={() => handleQuickAction('withdraw')}
+            >
+              <div className="action-icon">💸</div>
+              <div className="action-label">Withdraw</div>
+            </button>
+            
+            <button 
+              className="action-button"
+              onClick={() => handleQuickAction('convert')}
+            >
+              <div className="action-icon">🔄</div>
+              <div className="action-label">Convert</div>
+            </button>
+            
+            <button 
+              className="action-button"
+              onClick={() => handleQuickAction('history')}
+            >
+              <div className="action-icon">📜</div>
+              <div className="action-label">History</div>
+            </button>
           </div>
         </div>
         

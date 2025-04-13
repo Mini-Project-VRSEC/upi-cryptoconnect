@@ -16,6 +16,7 @@ import Dashboard from './pages/Dashboard';
 import Wallet from './pages/Wallet';
 import Transactions from './pages/Transactions';
 import NotFound from './pages/NotFound';
+import LearnMore from './pages/LearnMore';
 
 function App() {
   return (
@@ -44,6 +45,9 @@ function App() {
                 <Transactions />
               </PrivateRoute>
             } />
+            
+            {/* Learn More Page */}
+            <Route path="/learn-more" element={<LearnMore />} />
             
             {/* 404 Page */}
             <Route path="*" element={<NotFound />} />

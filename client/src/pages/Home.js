@@ -1,8 +1,32 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import './Home.css';
 
 const Home = () => {
+  const navigate = useNavigate();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  
+  useEffect(() => {
+    // Check if user is logged in by looking for token
+    const userToken = localStorage.getItem('userToken');
+    if (userToken) {
+      setIsLoggedIn(true);
+    }
+  }, []);
+  
+  const handleGetStarted = () => {
+    // If user is logged in, navigate to dashboard, otherwise to register
+    if (isLoggedIn) {
+      navigate('/dashboard');
+    } else {
+      navigate('/register');
+    }
+  };
+  
+  const handleLearnMore = () => {
+    navigate('/learn-more');
+  };
+  
   return (
     <div className="home">
       <section className="hero">
@@ -11,8 +35,10 @@ const Home = () => {
             <h1>Welcome to UPI CryptoConnect</h1>
             <p className="hero-subtitle">Seamlessly bridge your UPI accounts with cryptocurrency</p>
             <div className="hero-buttons">
-              <Link to="/register" className="btn btn-primary">Get Started</Link>
-              <Link to="/learn" className="btn btn-secondary">Learn More</Link>
+              <button className="btn btn-primary" onClick={handleGetStarted}>
+                {isLoggedIn ? 'Go to Dashboard' : 'Get Started'}
+              </button>
+              <button className="btn btn-secondary" onClick={handleLearnMore}>Learn More</button>
             </div>
           </div>
         </div>

@@ -9,6 +9,7 @@
       "client": "npm start --prefix client",
       "dev": "concurrently \"npm run server\" \"npm run client\"",
       "install-all": "npm install && npm install --prefix client && npm install --prefix server && npm install --prefix smart-contracts",
+      "setup-db": "node server/src/config/setupDb.js",
       "test": "echo \"Error: no test specified\" && exit 1"
     },
     "keywords": [
@@ -25,4 +26,4 @@
       "concurrently": "^8.0.1",
       "nodemon": "^2.0.22"
     }
-  }
+}

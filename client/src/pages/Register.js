@@ -70,6 +70,9 @@ const Register = () => {
       navigate('/dashboard');
     } catch (error) {
       setError(error.message);
+      
+      // Log the error for debugging
+      console.error('Registration error:', error);
     } finally {
       setLoading(false);
     }

@@ -41,8 +41,8 @@ const getBalance = async (token, currency) => {
 
 const walletService = {
   getWallet,
-  createWallet,
-  getBalance,
+  createWallet,  // newly added
+  getBalance     // newly added
 };
 
 export default walletService;

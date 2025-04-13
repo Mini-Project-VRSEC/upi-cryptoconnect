@@ -17,10 +17,16 @@ exports.register = async (req, res) => {
   try {
     const { name, email, password, phoneNumber } = req.body;
 
-    // Check if user already exists
-    const userExists = await User.findOne({ email });
-    if (userExists) {
-      return res.status(400).json({ message: 'User already exists' });
+    // Check if user already exists by email
+    const emailExists = await User.findOne({ email });
+    if (emailExists) {
+      return res.status(400).json({ message: 'Email already registered' });
+    }
+
+    // Check if phone number already exists
+    const phoneExists = await User.findOne({ phoneNumber });
+    if (phoneExists) {
+      return res.status(400).json({ message: 'Phone number already registered' });
     }
 
     // Create user
@@ -46,6 +52,21 @@ exports.register = async (req, res) => {
     });
   } catch (error) {
     console.error('Registration error:', error);
+    
+    // Check for duplicate key error
+    if (error.code === 11000) {
+      let errorMessage = 'Duplicate entry found';
+      if (error.keyPattern) {
+        // Identify which field caused the duplicate error
+        if (error.keyPattern.email) {
+          errorMessage = 'Email already registered';
+        } else if (error.keyPattern.phoneNumber) {
+          errorMessage = 'Phone number already registered';
+        }
+      }
+      return res.status(400).json({ message: errorMessage });
+    }
+    
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };

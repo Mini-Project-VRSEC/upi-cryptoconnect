@@ -17,7 +17,8 @@ import Wallet from './pages/Wallet';
 import Transactions from './pages/Transactions';
 import NotFound from './pages/NotFound';
 import LearnMore from './pages/LearnMore';
-import KYC from './pages/KYC'; // Import the KYC component
+import KYC from './pages/KYC';
+import UPI from './pages/UPI'; // Import the UPI component
 
 function App() {
   return (
@@ -51,7 +52,10 @@ function App() {
             <Route path="/learn-more" element={<LearnMore />} />
             
             {/* KYC Page */}
-            <Route path="/kyc" element={<KYC />} /> {/* Add KYC route */}
+            <Route path="/kyc" element={<KYC />} />
+            
+            {/* UPI Page */}
+            <Route path="/upi" element={<UPI />} /> {/* Add UPI route */}
             
             {/* 404 Page */}
             <Route path="*" element={<NotFound />} />

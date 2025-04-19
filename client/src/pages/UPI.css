@@ -1,0 +1,247 @@
+.upi-page {
+  min-height: 100vh;
+  padding: 2rem 1rem;
+  background-color: #0f0f0f;
+  color: #ffffff;
+}
+
+.upi-container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.upi-title {
+  text-align: center;
+  font-size: 2rem;
+  margin-bottom: 2rem;
+  background: linear-gradient(90deg, #00f2fe 0%, #4facfe 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Tabs */
+.upi-tabs {
+  display: flex;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid #252525;
+}
+
+.tab-button {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #999;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.tab-button:after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, #00f2fe 0%, #4facfe 100%);
+  transform: scaleX(0);
+  transition: transform 0.3s ease;
+}
+
+.tab-button.active {
+  color: #00f2fe;
+}
+
+.tab-button.active:after {
+  transform: scaleX(1);
+}
+
+/* UPI ID display */
+.upi-status-section {
+  background-color: #1a1a1a;
+  border-radius: 10px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.upi-id-container {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.upi-id-label {
+  font-weight: 500;
+  margin-right: 0.75rem;
+  color: #cccccc;
+}
+
+.upi-id-value {
+  font-family: monospace;
+  font-size: 1.2rem;
+  background-color: rgba(255, 255, 255, 0.1);
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  color: #00f2fe;
+}
+
+.kyc-status {
+  font-size: 0.9rem;
+  padding: 0.5rem 0;
+}
+
+.kyc-status span {
+  font-weight: 600;
+}
+
+.kyc-status.verified span {
+  color: #4caf50;
+}
+
+.kyc-status.pending span {
+  color: #ff9800;
+}
+
+.kyc-status.rejected span,
+.kyc-status.not-verified span {
+  color: #f44336;
+}
+
+.upi-verification-required,
+.upi-generation-required {
+  padding: 1rem;
+  background-color: rgba(255, 152, 0, 0.1);
+  border: 1px solid rgba(255, 152, 0, 0.3);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.kyc-link,
+.dashboard-link {
+  display: inline-block;
+  background-color: #4c84ff;
+  color: white;
+  text-decoration: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-weight: 500;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+}
+
+/* Action buttons */
+.upi-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.upi-action-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  border: none;
+  border-radius: 10px;
+  background-color: #1a1a1a;
+  color: white;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.upi-action-button.send {
+  background: linear-gradient(135deg, #1a1a1a 0%, #252525 100%);
+  border: 1px solid #00f2fe;
+}
+
+.upi-action-button.request {
+  background: linear-gradient(135deg, #1a1a1a 0%, #252525 100%);
+  border: 1px solid #4facfe;
+}
+
+.upi-action-button:hover {
+  transform: translateY(-3px);
+}
+
+.upi-action-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.button-icon {
+  font-size: 2rem;
+  margin-bottom: 0.75rem;
+}
+
+/* Info section */
+.upi-info {
+  background-color: #1a1a1a;
+  border-radius: 10px;
+  padding: 1.5rem;
+}
+
+.tab-content h3 {
+  color: #00f2fe;
+  margin-bottom: 1rem;
+}
+
+.tab-content p {
+  color: #cccccc;
+  line-height: 1.6;
+  margin-bottom: 1rem;
+}
+
+.features-list {
+  list-style: none;
+  padding-left: 0;
+}
+
+.features-list li {
+  margin-bottom: 0.5rem;
+  padding-left: 1.5rem;
+  position: relative;
+  color: #aaaaaa;
+}
+
+.features-list li:before {
+  content: '✓';
+  color: #00f2fe;
+  position: absolute;
+  left: 0;
+}
+
+/* Loading and Error states */
+.loading, .error {
+  text-align: center;
+  padding: 2rem;
+  color: #cccccc;
+}
+
+.error {
+  color: #f44336;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  .upi-actions {
+    grid-template-columns: 1fr;
+  }
+  
+  .upi-id-container {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .upi-id-label {
+    margin-bottom: 0.5rem;
+  }
+}

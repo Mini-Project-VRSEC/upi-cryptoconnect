@@ -2,12 +2,14 @@
 const User = require('../models/user.model');
 const jwt = require('jsonwebtoken');
 const { createWallet } = require('../services/wallet.service');
+require('dotenv').config(); // Ensure dotenv is loaded
 
 // Generate JWT token
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN
-  });
+  const secret = process.env.JWT_SECRET || 'fallback_jwt_secret_key_for_development';
+  const expiresIn = process.env.JWT_EXPIRES_IN || '30d';
+  
+  return jwt.sign({ id }, secret, { expiresIn });
 };
 
 // @desc    Register a new user

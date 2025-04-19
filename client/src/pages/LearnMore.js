@@ -52,7 +52,7 @@ const LearnMore = () => {
           </div>
         </section>
 
-        <section className="info-section">
+        <section className="info-section how-it-works">
           <h2>How It Works</h2>
           <div className="steps-container">
             <div className="step">

@@ -1,6 +1,7 @@
 // server/src/middleware/auth.middleware.js
 const jwt = require('jsonwebtoken');
 const User = require('../models/user.model');
+require('dotenv').config(); // Ensure dotenv is loaded
 
 exports.protect = async (req, res, next) => {
   try {
@@ -15,8 +16,11 @@ exports.protect = async (req, res, next) => {
       return res.status(401).json({ message: 'Not authorized, no token' });
     }
 
-    // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // Use a fallback secret if environment variable is not set
+    const secret = process.env.JWT_SECRET || 'fallback_jwt_secret_key_for_development';
+
+    // Verify token with the secret
+    const decoded = jwt.verify(token, secret);
 
     // Find user by id
     const user = await User.findById(decoded.id);

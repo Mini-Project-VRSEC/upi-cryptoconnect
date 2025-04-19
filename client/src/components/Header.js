@@ -53,6 +53,9 @@ const Header = () => {
               <Link to="/transactions" className={`nav-link ${isActive('/transactions') ? 'active' : ''}`}>
                 Transactions
               </Link>
+              <Link to="/kyc" className={`nav-link ${isActive('/kyc') ? 'active' : ''}`}>
+                KYC
+              </Link>
             </>
           ) : (
             <>
@@ -125,6 +128,9 @@ const Header = () => {
               </Link>
               <Link to="/transactions" className={`nav-link ${isActive('/transactions') ? 'active' : ''}`}>
                 Transactions
+              </Link>
+              <Link to="/kyc" className={`nav-link ${isActive('/kyc') ? 'active' : ''}`}>
+                KYC
               </Link>
               <button className="logout-btn" onClick={handleLogout}>
                 Logout

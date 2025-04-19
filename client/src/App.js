@@ -17,6 +17,7 @@ import Wallet from './pages/Wallet';
 import Transactions from './pages/Transactions';
 import NotFound from './pages/NotFound';
 import LearnMore from './pages/LearnMore';
+import KYC from './pages/KYC'; // Import the KYC component
 
 function App() {
   return (
@@ -48,6 +49,9 @@ function App() {
             
             {/* Learn More Page */}
             <Route path="/learn-more" element={<LearnMore />} />
+            
+            {/* KYC Page */}
+            <Route path="/kyc" element={<KYC />} /> {/* Add KYC route */}
             
             {/* 404 Page */}
             <Route path="*" element={<NotFound />} />

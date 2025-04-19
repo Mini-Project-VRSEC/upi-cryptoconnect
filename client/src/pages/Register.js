@@ -66,8 +66,8 @@ const Register = () => {
         email: data.email
       }));
       
-      // Redirect to dashboard
-      navigate('/dashboard');
+      // Redirect to KYC page instead of dashboard
+      navigate('/kyc');
     } catch (error) {
       setError(error.message);
       

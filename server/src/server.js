@@ -15,7 +15,8 @@ if (!fs.existsSync(uploadDir)) {
 const authRoutes = require('./routes/auth.routes');
 const walletRoutes = require('./routes/wallet.routes');
 const transactionRoutes = require('./routes/transaction.routes');
-const kycRoutes = require('./routes/kyc.routes'); // Add this line
+const kycRoutes = require('./routes/kyc.routes');
+const upiRoutes = require('./routes/upi.routes'); // Add this line
 
 // Set port
 const PORT = process.env.PORT || 5000;
@@ -30,7 +31,8 @@ const startServer = async () => {
     app.use('/api/auth', authRoutes);
     app.use('/api/wallet', walletRoutes);
     app.use('/api/transactions', transactionRoutes);
-    app.use('/api/kyc', kycRoutes); // Add this line
+    app.use('/api/kyc', kycRoutes);
+    app.use('/api/upi', upiRoutes); // Add this line
 
     // Start server
     app.listen(PORT, () => {

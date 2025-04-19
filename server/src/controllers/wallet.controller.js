@@ -7,44 +7,41 @@ const crypto = require('crypto');
 // Create a new wallet for a user
 exports.createWallet = async (req, res) => {
   try {
-    // Check if user already has a wallet
-    const existingWallet = await Wallet.findOne({ user: req.user._id });
-    if (existingWallet) {
-      return res.status(400).json({ message: 'User already has a wallet' });
-    }
-
-    // Create Ethereum wallet
-    const wallet = ethers.Wallet.createRandom();
-    const address = wallet.address;
+    const userId = req.user._id;
     
-    // Encrypt private key with a temporary password
-    const tempPassword = crypto.randomBytes(32).toString('hex');
-    const encryptedPrivateKey = crypto.createHmac('sha256', tempPassword)
-      .update(wallet.privateKey)
-      .digest('hex');
-
-    // Create new wallet in database
-    const newWallet = await Wallet.create({
-      user: req.user._id,
+    // Check if wallet already exists
+    let wallet = await Wallet.findOne({ user: userId });
+    if (wallet) {
+      return res.status(400).json({ message: 'Wallet already exists' });
+    }
+    
+    // Create a new wallet
+    wallet = new Wallet({
+      user: userId,
+      upiWallet: {
+        balance: '0', // Initialize as string '0'
+        linkedAccounts: []
+      },
       cryptoWallet: {
         ethereum: {
-          address,
-          encryptedPrivateKey,
+          address: '',
+          encryptedPrivateKey: '',
           balance: '0'
-        }
+        },
+        tokens: []
       }
     });
-
+    
+    await wallet.save();
+    
     res.status(201).json({
-      _id: newWallet._id,
-      cryptoWallet: {
-        ethereum: {
-          address: newWallet.cryptoWallet.ethereum.address
-        }
-      }
+      message: 'Wallet created successfully',
+      wallet
     });
+    
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Create wallet error:', error);
+    res.status(500).json({ message: 'Failed to create wallet' });
   }
 };
 

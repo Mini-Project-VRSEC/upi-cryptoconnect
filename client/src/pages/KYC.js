@@ -138,7 +138,7 @@ const KYC = () => {
       setFormState({
         ...formState,
         loading: false,
-        success: 'Your KYC verification has been submitted successfully. We will review your documents and update you soon.'
+        success: 'Your KYC verification has been submitted successfully. We are automatically processing your documents. This should take about 1-2 minutes. You can check the status on your dashboard.'
       });
     } catch (error) {
       setFormState({

@@ -1,5 +1,6 @@
 const Wallet = require('../models/wallet.model');
 const User = require('../models/user.model');
+const KYC = require('../models/kyc.model');
 const ethers = require('ethers');
 const crypto = require('crypto');
 
@@ -159,6 +160,65 @@ exports.createUpiId = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+// Generate a new UPI ID for verified users
+exports.generateUpiId = async (req, res) => {
+  try {
+    // Check if user has verified KYC
+    const kyc = await KYC.findOne({ user: req.user._id, kycStatus: 'verified' });
+    
+    if (!kyc) {
+      return res.status(403).json({ message: 'KYC verification required to generate UPI ID' });
+    }
+    
+    // Find user's wallet
+    let wallet = await Wallet.findOne({ user: req.user._id });
+    
+    if (!wallet) {
+      return res.status(404).json({ message: 'Wallet not found' });
+    }
+    
+    // Check if UPI ID already exists
+    if (wallet.upiWallet && wallet.upiWallet.upiId) {
+      return res.status(400).json({ message: 'UPI ID already exists', upiId: wallet.upiWallet.upiId });
+    }
+    
+    // Get user details to create a personalized UPI ID
+    const user = await User.findById(req.user._id);
+    
+    // Create UPI ID using user's name or username
+    let username = user.name.toLowerCase().replace(/\s+/g, '');
+    // Remove special characters and limit length
+    username = username.replace(/[^\w]/g, '').substring(0, 15);
+    // Add random digits for uniqueness
+    const randomDigits = Math.floor(1000 + Math.random() * 9000);
+    
+    // Format: username@cryptoconnect
+    const upiId = `${username}${randomDigits}@cryptoconnect`;
+    
+    // Update wallet with new UPI ID
+    if (!wallet.upiWallet) {
+      wallet.upiWallet = {
+        balance: 0,
+        upiId: upiId,
+        linkedAccounts: []
+      };
+    } else {
+      wallet.upiWallet.upiId = upiId;
+    }
+    
+    await wallet.save();
+    
+    res.json({
+      message: 'UPI ID generated successfully',
+      upiId: upiId
+    });
+    
+  } catch (error) {
+    console.error('Generate UPI ID error:', error);
+    res.status(500).json({ message: 'Failed to generate UPI ID' });
   }
 };
 

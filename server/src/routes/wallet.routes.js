@@ -9,7 +9,8 @@ const {
   verifyBankAccount,
   createUpiId,
   getWalletBalance,
-  addToken
+  addToken,
+  generateUpiId
 } = require('../controllers/wallet.controller');
 
 // Protect all routes
@@ -23,5 +24,6 @@ router.post('/bank-account', linkBankAccount);
 router.post('/bank-account/verify', verifyBankAccount);
 router.post('/upi-id', createUpiId);
 router.post('/token', addToken);
+router.post('/generate-upi', protect, generateUpiId);
 
 module.exports = router;

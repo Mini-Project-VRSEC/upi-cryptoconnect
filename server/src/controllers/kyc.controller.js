@@ -111,6 +111,9 @@ exports.uploadDocuments = async (req, res) => {
     // STEP 5: Update user's KYC status
     await User.findByIdAndUpdate(req.user._id, { kycStatus: 'pending' });
 
+    // STEP 6: Schedule auto-verification for demo purposes
+    scheduleAutoVerification(kyc._id);
+
     // Return success response
     res.status(201).json({
       message: 'KYC verification submitted successfully',
@@ -124,6 +127,39 @@ exports.uploadDocuments = async (req, res) => {
     res.status(500).json({ message: 'Failed to process KYC documents. Please try again.' });
   }
 };
+
+/**
+ * Auto-verify KYC after a short delay (for demonstration purposes)
+ */
+function scheduleAutoVerification(kycId) {
+  // Random delay between 30-90 seconds for demo purposes
+  const delayMs = Math.floor(Math.random() * 60000) + 30000;
+  
+  console.log(`Scheduled auto-verification for KYC ${kycId} in ${delayMs/1000} seconds`);
+  
+  setTimeout(async () => {
+    try {
+      // Find the KYC record
+      const kyc = await KYC.findById(kycId);
+      if (!kyc || kyc.kycStatus !== 'pending') {
+        return; // KYC not found or already processed
+      }
+      
+      // Update KYC status to verified
+      kyc.kycStatus = 'verified';
+      kyc.processedDate = new Date();
+      kyc.processedBy = null; // Auto-processed
+      await kyc.save();
+      
+      // Update user's KYC status
+      await User.findByIdAndUpdate(kyc.user, { kycStatus: 'verified' });
+      
+      console.log(`Auto-verified KYC ${kycId} for user ${kyc.user}`);
+    } catch (error) {
+      console.error('Auto-verification error:', error);
+    }
+  }, delayMs);
+}
 
 /**
  * Simulate OCR extraction for demo purposes

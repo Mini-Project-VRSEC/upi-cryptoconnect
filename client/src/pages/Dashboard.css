@@ -189,3 +189,109 @@
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
   }
+
+  /* UPI Section Styles */
+  .upi-section {
+    background-color: #1a1a1a;
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin-top: 1.5rem;
+    border: 1px solid #252525;
+  }
+  
+  .upi-section h3 {
+    color: #00f2fe;
+    margin-bottom: 1rem;
+    font-size: 1.25rem;
+  }
+  
+  .upi-id-display {
+    display: flex;
+    align-items: center;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .upi-id {
+    font-family: monospace;
+    font-size: 1.1rem;
+    color: white;
+    flex-grow: 1;
+    letter-spacing: 0.5px;
+  }
+  
+  .upi-id-badge {
+    background-color: #00a86b;
+    color: white;
+    font-size: 0.7rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+  }
+  
+  .upi-info {
+    color: #999;
+    font-size: 0.9rem;
+  }
+  
+  .generate-upi-btn {
+    background: linear-gradient(90deg, #00f2fe 0%, #4facfe 100%);
+    color: black;
+    border: none;
+    border-radius: 6px;
+    padding: 0.75rem 1.5rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 1rem;
+  }
+  
+  .generate-upi-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 242, 254, 0.3);
+  }
+  
+  .generate-upi-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+  }
+  
+  .upi-section.pending {
+    background-color: rgba(255, 193, 7, 0.1);
+    border-color: rgba(255, 193, 7, 0.3);
+  }
+  
+  .upi-section.not-verified {
+    background-color: rgba(244, 67, 54, 0.05);
+    border-color: rgba(244, 67, 54, 0.2);
+  }
+  
+  .kyc-link {
+    display: inline-block;
+    background-color: #4c84ff;
+    color: white;
+    text-decoration: none;
+    padding: 0.6rem 1.2rem;
+    border-radius: 6px;
+    font-weight: 500;
+    margin-top: 1rem;
+    transition: all 0.2s;
+  }
+  
+  .kyc-link:hover {
+    background-color: #3b73ee;
+  }
+  
+  .error-message {
+    background-color: rgba(244, 67, 54, 0.1);
+    border: 1px solid rgba(244, 67, 54, 0.3);
+    color: #f44336;
+    padding: 0.75rem;
+    border-radius: 6px;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+  }

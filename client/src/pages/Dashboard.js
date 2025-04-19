@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import './Dashboard.css';
+import KycStatus from '../components/KycStatus';
 
 const Dashboard = () => {
   const [balances, setBalances] = useState({
@@ -11,29 +12,100 @@ const Dashboard = () => {
   
   const [recentTransactions, setRecentTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [kycStatus, setKycStatus] = useState('not_submitted');
+  const [upiId, setUpiId] = useState(null);
+  const [upiGenerating, setUpiGenerating] = useState(false);
+  const [upiError, setUpiError] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Placeholder for API calls to fetch dashboard data
-    // This would be replaced with actual API calls
-    
-    // Simulate loading
-    setTimeout(() => {
-      // Mock data
-      setBalances({
-        inr: 25000,
-        crypto: 0.05
+    const fetchData = async () => {
+      // Placeholder for API calls to fetch dashboard data
+      // This would be replaced with actual API calls
+      
+      // Simulate loading
+      setTimeout(() => {
+        // Mock data
+        setBalances({
+          inr: 25000,
+          crypto: 0.05
+        });
+        
+        setRecentTransactions([
+          { id: 1, type: 'deposit', amount: 5000, date: '2025-04-10', status: 'completed' },
+          { id: 2, type: 'withdrawal', amount: 2000, date: '2025-04-08', status: 'completed' },
+          { id: 3, type: 'convert', amount: 3000, date: '2025-04-05', status: 'completed' }
+        ]);
+        
+        setLoading(false);
+      }, 800);
+
+      // Add KYC status check
+      try {
+        const kycResponse = await fetch('/api/kyc/status', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('userToken')}`
+          }
+        });
+        
+        if (kycResponse.ok) {
+          const kycData = await kycResponse.json();
+          setKycStatus(kycData.status);
+        }
+      } catch (error) {
+        console.error('Error fetching KYC status:', error);
+      }
+      
+      // Check if user already has a UPI ID
+      try {
+        const walletResponse = await fetch('/api/wallet/details', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('userToken')}`
+          }
+        });
+        
+        if (walletResponse.ok) {
+          const walletData = await walletResponse.json();
+          if (walletData.upiWallet && walletData.upiWallet.upiId) {
+            setUpiId(walletData.upiWallet.upiId);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching wallet details:', error);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const handleGenerateUpiId = async () => {
+    try {
+      setUpiGenerating(true);
+      setUpiError('');
+      
+      const response = await fetch('/api/wallet/generate-upi', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('userToken')}`,
+          'Content-Type': 'application/json'
+        }
       });
       
-      setRecentTransactions([
-        { id: 1, type: 'deposit', amount: 5000, date: '2025-04-10', status: 'completed' },
-        { id: 2, type: 'withdrawal', amount: 2000, date: '2025-04-08', status: 'completed' },
-        { id: 3, type: 'convert', amount: 3000, date: '2025-04-05', status: 'completed' }
-      ]);
+      const data = await response.json();
       
-      setLoading(false);
-    }, 800);
-  }, []);
+      if (response.ok) {
+        setUpiId(data.upiId);
+        // You might want to show a success message or update other parts of the UI
+      } else {
+        setUpiError(data.message || 'Failed to generate UPI ID');
+      }
+    } catch (error) {
+      setUpiError('Error generating UPI ID. Please try again.');
+      console.error('Error generating UPI ID:', error);
+    } finally {
+      setUpiGenerating(false);
+    }
+  };
 
   // Handle quick action clicks
   const handleQuickAction = (action) => {
@@ -56,11 +128,62 @@ const Dashboard = () => {
     }
   };
 
+  const renderUpiSection = () => {
+    if (kycStatus === 'verified') {
+      if (upiId) {
+        return (
+          <div className="upi-section">
+            <h3>Your UPI ID</h3>
+            <div className="upi-id-display">
+              <span className="upi-id">{upiId}</span>
+              <div className="upi-id-badge">Verified</div>
+            </div>
+            <p className="upi-info">Use this UPI ID for direct transfers to your account.</p>
+          </div>
+        );
+      } else {
+        return (
+          <div className="upi-section">
+            <h3>Generate UPI ID</h3>
+            <p>Your KYC is verified. You can now generate a UPI ID for transactions.</p>
+            {upiError && <div className="error-message">{upiError}</div>}
+            <button 
+              className="generate-upi-btn" 
+              onClick={handleGenerateUpiId} 
+              disabled={upiGenerating}
+            >
+              {upiGenerating ? 'Generating...' : 'Generate UPI ID'}
+            </button>
+          </div>
+        );
+      }
+    } else if (kycStatus === 'pending') {
+      return (
+        <div className="upi-section pending">
+          <h3>UPI ID Generation</h3>
+          <p>Your KYC verification is pending. Once verified, you'll be able to generate a UPI ID.</p>
+        </div>
+      );
+    } else {
+      return (
+        <div className="upi-section not-verified">
+          <h3>Complete KYC to Get UPI ID</h3>
+          <p>Please complete your KYC verification to generate a UPI ID for transactions.</p>
+          <a href="/kyc" className="kyc-link">Complete KYC</a>
+        </div>
+      );
+    }
+  };
+
   return (
     <div className="dashboard">
       <div className="dashboard-container">
         <div className="dashboard-header">
           <h1>Your Dashboard</h1>
+        </div>
+
+        <div className="dashboard-section">
+          <KycStatus />
         </div>
 
         <div className="stats-grid">
@@ -152,6 +275,8 @@ const Dashboard = () => {
             View All Transactions →
           </Link>
         </div>
+
+        {renderUpiSection()}
       </div>
     </div>
   );

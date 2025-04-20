@@ -13,7 +13,14 @@ const transactionSchema = new mongoose.Schema({
   recipient: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: false // Change from true to false
+  },
+  recipientUpiId: {
+    type: String,
+    required: function() {
+      // Only required if recipient is not provided
+      return !this.recipient;
+    }
   },
   amount: {
     type: Number,

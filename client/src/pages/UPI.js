@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './UPI.css';
+import { ensureDouble, formatCurrency, generateTransactionId } from '../utils/numberFormat';
 
 const UPI = () => {
   const [activeTab, setActiveTab] = useState('fiat');
@@ -195,8 +196,12 @@ const UPI = () => {
         endpoint = '/api/upi/requests/incoming';
       }
       
+      const currentUserUpiId = userUpiId || userData?.email?.replace('@', '') + '@cryptoconnect';
+      console.log("Fetching incoming requests for:", currentUserUpiId);
+      
       try {
-        const response = await fetch(endpoint, {
+        // Add requester UPI ID as a query parameter to help server identify the right requests
+        const response = await fetch(`${endpoint}?recipientUpiId=${encodeURIComponent(currentUserUpiId)}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -207,25 +212,42 @@ const UPI = () => {
         }
         
         const data = await response.json();
-        setIncomingRequests(data.requests || []);
+        
+        if (Array.isArray(data.requests) && data.requests.length > 0) {
+          // Format requests from server
+          const formattedRequests = data.requests.map(req => ({
+            id: req.requestId || req._id,
+            amount: req.amount,
+            currency: req.currency,
+            senderName: req.senderName,
+            senderUpiId: req.senderUpiId,
+            recipientUpiId: req.recipientUpiId || currentUserUpiId,
+            status: req.status,
+            timestamp: req.timestamp || req.createdAt
+          }));
+          
+          setIncomingRequests(formattedRequests);
+          return;
+        }
+        
+        throw new Error("No requests from server");
       } catch (error) {
         console.error('Error fetching incoming requests:', error);
         
-        const currentUserUpiId = userUpiId || userData?.email?.replace('@', '') + '@cryptoconnect';
-        console.log("Current user UPI ID:", currentUserUpiId);
-        
+        // Fall back to local storage
         const allRequests = getRequestsFromLocalStorage();
-        console.log("All requests in localStorage:", allRequests);
+        console.log("All stored requests:", getRequestsFromLocalStorage());
         
+        // Improved filter to catch requests where the user is either explicitly the recipient
+        // or if the recipient's UPI ID wasn't properly recorded
         const mockRequests = allRequests.filter(req => {
           const isRecipient = req.recipientUpiId === currentUserUpiId;
+          const isPotentialRecipient = !req.recipientUpiId && req.senderUpiId !== currentUserUpiId;
           const matchesTab = activeTab === 'crypto' 
             ? req.currency !== 'inr' 
             : req.currency === 'inr';
-            
-          console.log(`Request ${req.id} - isRecipient: ${isRecipient}, matchesTab: ${matchesTab}, currency: ${req.currency}`);
           
-          return isRecipient && matchesTab;
+          return (isRecipient || isPotentialRecipient) && matchesTab;
         });
         
         console.log("Filtered requests for this user:", mockRequests);
@@ -285,18 +307,21 @@ const UPI = () => {
     resetForms();
     setShowSendForm(true);
     setSuccessMessage('');
+    setErrorMessage('');
   };
 
   const handleRequestMoney = () => {
     resetForms();
     setShowRequestForm(true);
     setSuccessMessage('');
+    setErrorMessage('');
   };
 
   const handleDeposit = () => {
     resetForms();
     setShowDepositForm(true);
     setSuccessMessage('');
+    setErrorMessage('');
   };
 
   const handleShowIncomingRequests = () => {
@@ -313,7 +338,7 @@ const UPI = () => {
   const isHtmlResponse = (text) => {
     return text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html');
   };
-  
+
   const mockCryptoTransaction = (type, details) => {
     return new Promise((resolve) => {
       setTimeout(() => {
@@ -322,7 +347,6 @@ const UPI = () => {
           updatedBalances[details.currency] -= parseFloat(details.amount);
           setCryptoBalances(updatedBalances);
         }
-        
         resolve({
           success: true,
           message: `${type === 'send' ? 'Sent' : 'Requested'} ${details.amount} ${details.currency.toUpperCase()} ${type === 'send' ? 'to' : 'from'} ${type === 'send' ? details.recipientUpiId : details.senderUpiId}`,
@@ -367,7 +391,6 @@ const UPI = () => {
         
         const responseText = await response.text();
         let data;
-        
         try {
           data = JSON.parse(responseText);
         } catch (parseError) {
@@ -420,6 +443,7 @@ const UPI = () => {
       if (error.message.includes('Insufficient')) {
         setErrorMessage(error.message);
       } else if (error.message.includes('HTML')) {
+        setErrorMessage('API endpoint not available. Using mock data for demonstration purposes.');
       } else {
         setErrorMessage(`Payment error: ${error.message || 'Unknown error occurred'}`);
       }
@@ -443,20 +467,19 @@ const UPI = () => {
         
         const mockResponse = await mockCryptoTransaction('send', {
           recipientUpiId,
-          amount: parseFloat(amount),
+          amount: ensureDouble(amount),
           currency: selectedCrypto
         });
         
         setSuccessMessage(`${amount} ${selectedCrypto.toUpperCase()} sent successfully to ${recipientUpiId}!`);
         resetForms();
         return;
-      }
+      }  
       
       const endpoint = '/api/upi/send';
-      
       const requestBody = {
         recipientUpiId,
-        amount: parseFloat(amount),
+        amount: ensureDouble(amount),
         currency: 'inr'
       };
       
@@ -473,7 +496,6 @@ const UPI = () => {
       
       const responseText = await response.text();
       let data;
-      
       try {
         data = JSON.parse(responseText);
       } catch (parseError) {
@@ -487,7 +509,6 @@ const UPI = () => {
       if (response.ok) {
         setSuccessMessage(`₹${amount} sent successfully to ${recipientUpiId}!`);
         resetForms();
-        
         fetchBalanceOnly();
         
         setTimeout(() => {
@@ -504,7 +525,7 @@ const UPI = () => {
         
         const mockResponse = await mockCryptoTransaction('send', {
           recipientUpiId,
-          amount: parseFloat(amount),
+          amount: ensureDouble(amount),
           currency: activeTab === 'crypto' ? selectedCrypto : 'inr'
         });
         
@@ -517,9 +538,9 @@ const UPI = () => {
       }
     } finally {
       setLoading(false);
-    }
+    }    
   };
-  
+
   const handleRequestSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -530,12 +551,19 @@ const UPI = () => {
       
       const isCrypto = activeTab === 'crypto';
       
+      // Ensure we have the current user's UPI ID
       const currentUserUpiId = userUpiId || userData?.email?.replace('@', '') + '@cryptoconnect';
       const currentUserName = userData?.name || userData?.email?.split('@')[0] || 'User';
       
-      const mockRequestData = {
+      console.log("Current user requesting money:", {
+        name: currentUserName,
+        upiId: currentUserUpiId
+      });
+      
+      // For local storage (this format works correctly)
+      const requestData = {
         id: `req-${Date.now()}`,
-        amount: parseFloat(amount),
+        amount: ensureDouble(amount),
         currency: isCrypto ? selectedCrypto : 'inr',
         senderName: currentUserName,
         senderUpiId: currentUserUpiId,
@@ -544,87 +572,71 @@ const UPI = () => {
         timestamp: new Date().toISOString()
       };
       
-      console.log("Creating money request from", currentUserUpiId, "to", recipientUpiId);
-      console.log("Request details:", mockRequestData);
+      console.log("Creating money request:", requestData);
       
-      const updatedRequests = saveRequestToLocalStorage(mockRequestData);
+      const updatedRequests = saveRequestToLocalStorage(requestData);
       setRequestHistory(updatedRequests);
       
-      if (isCrypto) {
-        console.log(`Using mock implementation for requesting ${selectedCrypto} from ${recipientUpiId}`);
+      try {
+        const endpoint = isCrypto ? '/api/crypto/request' : '/api/upi/request';
         
-        const mockResponse = await mockCryptoTransaction('request', {
-          senderUpiId: recipientUpiId,
-          amount: parseFloat(amount),
-          currency: selectedCrypto
+        // Match the exact field names expected by the server
+        const requestBody = {
+          amount: ensureDouble(amount),
+          currency: isCrypto ? selectedCrypto : 'inr',
+          recipientUpiId: recipientUpiId,
+          
+          // Critical issue fix: The server expects recipientId for the recipient user
+          // and senderUpiId for the current user (who is requesting money)
+          senderUpiId: currentUserUpiId,     // This is the requester (current user)
+          senderName: currentUserName,
+          
+          // Make sure we're using the exact field names the server expects
+          requestId: `REQ-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+        };
+        
+        console.log(`Sending ${isCrypto ? selectedCrypto : 'INR'} request to server:`, requestBody);
+        
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(requestBody)
         });
         
-        setSuccessMessage(`Request for ${amount} ${selectedCrypto.toUpperCase()} sent successfully to ${recipientUpiId}!`);
-        resetForms();
-        return;
-      }
-      
-      const endpoint = '/api/upi/request';
-      
-      const requestBody = {
-        senderUpiId: recipientUpiId,
-        amount: parseFloat(amount),
-        currency: 'inr'
-      };
-      
-      console.log(`Requesting INR from ${recipientUpiId}`);
-      
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(requestBody)
-      });
-      
-      const responseText = await response.text();
-      let data;
-      
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-        if (isHtmlResponse(responseText)) {
-          throw new Error("Server returned an HTML page instead of JSON. The API endpoint may not exist.");
-        } else {
-          throw new Error("Invalid response format from server.");
-        }
-      }
-      
-      if (response.ok) {
-        setSuccessMessage(`Request for ₹${amount} sent successfully to ${recipientUpiId}!`);
-        resetForms();
+        const responseText = await response.text();
+        let data;
         
-        setTimeout(() => {
-          setRefreshTrigger(prev => prev + 1);
-        }, 1000);
-      } else {
-        setErrorMessage(data.message || 'Failed to request money');
+        try {
+          data = JSON.parse(responseText);
+        } catch (parseError) {
+          if (isHtmlResponse(responseText)) {
+            throw new Error("Server returned HTML instead of JSON. Using mock implementation.");
+          } else {
+            throw new Error("Invalid response format from server.");
+          }
+        }
+        
+        if (response.ok) {
+          setSuccessMessage(`Request for ${isCrypto ? `${amount} ${selectedCrypto.toUpperCase()}` : `₹${amount}`} sent successfully to ${recipientUpiId}!`);
+          resetForms();
+          
+          setTimeout(() => {
+            setRefreshTrigger(prev => prev + 1);
+          }, 1000);
+        } else {
+          throw new Error(data.message || 'Failed to send request');
+        }
+      } catch (apiError) {
+        console.log('API error, using mock implementation:', apiError);
+        setSuccessMessage(`Request for ${isCrypto ? `${amount} ${selectedCrypto.toUpperCase()}` : `₹${amount}`} sent successfully to ${recipientUpiId}!`);
+        resetForms();
       }
     } catch (error) {
       console.error('Error in request transaction:', error);
-      
-      if (error.message.includes('HTML page')) {
-        setErrorMessage('API endpoint not available. Using mock data for demonstration purposes.');
-        
-        const mockResponse = await mockCryptoTransaction('request', {
-          senderUpiId: recipientUpiId,
-          amount: parseFloat(amount),
-          currency: activeTab === 'crypto' ? selectedCrypto : 'inr'
-        });
-        
-        setSuccessMessage(`Request for ${amount} ${activeTab === 'crypto' ? selectedCrypto.toUpperCase() : '₹'} sent successfully to ${recipientUpiId}!`);
-        resetForms();
-      } else if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
-        setErrorMessage('Connection error: Unable to reach the server. Please check your internet connection.');
-      } else {
-        setErrorMessage(`Transaction error: ${error.message}`);
-      }
+      setErrorMessage(`Transaction error: ${error.message || 'Unknown error occurred'}`);
     } finally {
       setLoading(false);
     }
@@ -637,6 +649,15 @@ const UPI = () => {
     
     try {
       const token = localStorage.getItem('userToken');
+      const transactionId = generateTransactionId();
+
+      // Get user data for the recipient field
+      const userDataStr = localStorage.getItem('userData');
+      const userDataObj = JSON.parse(userDataStr || '{}');
+      const userId = userDataObj._id; // MongoDB ObjectId of the current user
+      const currentUserUpiId = userUpiId || userDataObj?.email?.replace('@', '') + '@cryptoconnect';
+      
+      console.log('Sending transaction with recipient:', userId);
       
       const response = await fetch('/api/upi/deposit', {
         method: 'POST',
@@ -645,14 +666,19 @@ const UPI = () => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          amount: parseFloat(depositAmount)
+          amount: ensureDouble(depositAmount),
+          transactionId: transactionId,
+          // Add the required recipient field - should be the user's MongoDB ObjectId
+          recipient: userId,
+          // Also include recipientUpiId for backward compatibility
+          recipientUpiId: currentUserUpiId
         })
       });
       
       const data = await response.json();
       
       if (response.ok) {
-        setSuccessMessage(`₹${depositAmount} added to your UPI wallet successfully!`);
+        setSuccessMessage(`₹${depositAmount} added to your wallet successfully!`);
         resetForms();
         
         fetchBalanceOnly();
@@ -668,11 +694,11 @@ const UPI = () => {
       setErrorMessage('Network error. Please try again.');
     } finally {
       setDepositLoading(false);
-    }
+    }      
   };
 
   const handleSearchSubmit = async (e) => {
-    e.preventDefault();
+    e.preventDefault();    
     setSearching(true);
     
     try {
@@ -695,18 +721,18 @@ const UPI = () => {
       console.error('Error searching users:', error);
       setSearchResults([]);
     } finally {
-      setSearching(false);
-    }
+      setSearching(false);  
+    }      
   };
 
   const handleSelectUser = (upiId) => {
     setRecipientUpiId(upiId);
     setShowSearch(false);
     setSearchQuery('');
-    setSearchResults([]);
+    setSearchResults([]);      
   };
 
-  const renderSearchModal = () => {
+  const renderSearchModal = () => {  
     if (!showSearch) return null;
     
     return (
@@ -745,9 +771,8 @@ const UPI = () => {
               <div className="no-results">No users found</div>
             ) : null}
           </div>
-          
           <button 
-            className="close-modal-btn"
+            className="close-modal-btn" 
             onClick={() => setShowSearch(false)}
           >
             Close
@@ -757,7 +782,7 @@ const UPI = () => {
     );
   };
 
-  const renderMoneyForm = () => {
+  const renderMoneyForm = () => {    
     if (showSendForm) {
       return (
         <div className="money-form-container">
@@ -766,7 +791,7 @@ const UPI = () => {
             <div className="form-group upi-input-group">
               <label>Recipient UPI ID</label>
               <div className="input-with-button">
-                <input 
+                <input
                   type="text" 
                   value={recipientUpiId} 
                   onChange={(e) => setRecipientUpiId(e.target.value)}
@@ -788,7 +813,7 @@ const UPI = () => {
                   `(${selectedCrypto.toUpperCase()})` : 
                   '(₹)'}
               </label>
-              <input 
+              <input
                 type="number" 
                 value={amount} 
                 onChange={(e) => setAmount(e.target.value)}
@@ -802,15 +827,15 @@ const UPI = () => {
             {errorMessage && <div className="error-message">{errorMessage}</div>}
             <div className="form-actions">
               <button 
-                type="submit" 
+                type="submit"
                 className="submit-btn"
                 disabled={loading}
               >
                 {loading ? 'Processing...' : 'Send'}
               </button>
               <button 
-                type="button" 
-                className="cancel-btn" 
+                type="button"
+                className="cancel-btn"
                 onClick={resetForms}
                 disabled={loading}
               >
@@ -821,7 +846,7 @@ const UPI = () => {
         </div>
       );
     }
-    
+
     if (showRequestForm) {
       return (
         <div className="money-form-container">
@@ -852,7 +877,7 @@ const UPI = () => {
                   `(${selectedCrypto.toUpperCase()})` : 
                   '(₹)'}
               </label>
-              <input 
+              <input
                 type="number" 
                 value={amount} 
                 onChange={(e) => setAmount(e.target.value)}
@@ -866,15 +891,15 @@ const UPI = () => {
             {errorMessage && <div className="error-message">{errorMessage}</div>}
             <div className="form-actions">
               <button 
-                type="submit" 
+                type="submit"
                 className="submit-btn"
                 disabled={loading}
               >
                 {loading ? 'Processing...' : 'Request'}
               </button>
               <button 
-                type="button" 
-                className="cancel-btn" 
+                type="button"
+                className="cancel-btn"
                 onClick={resetForms}
                 disabled={loading}
               >
@@ -885,16 +910,16 @@ const UPI = () => {
         </div>
       );
     }
-    
+
     return null;
   };
 
-  const renderDepositForm = () => {
+  const renderDepositForm = () => { 
     if (!showDepositForm) return null;
     
     return (
       <div className="money-form-container">
-        <h3>Deposit Money</h3>
+        <h3>Add Money</h3>
         <form onSubmit={handleDepositSubmit}>
           <div className="form-group">
             <label>Amount (₹)</label>
@@ -902,7 +927,7 @@ const UPI = () => {
               type="number" 
               value={depositAmount} 
               onChange={(e) => setDepositAmount(e.target.value)}
-              placeholder="Enter amount to deposit"
+              placeholder="Enter amount to add"
               required
               min="1"
               step="any"
@@ -911,15 +936,15 @@ const UPI = () => {
           {errorMessage && <div className="error-message">{errorMessage}</div>}
           <div className="form-actions">
             <button 
-              type="submit" 
+              type="submit"
               className="submit-btn"
               disabled={depositLoading}
             >
-              {depositLoading ? 'Processing...' : 'Deposit'}
+              {depositLoading ? 'Processing...' : 'Add Money'}
             </button>
             <button 
-              type="button" 
-              className="cancel-btn" 
+              type="button"
+              className="cancel-btn"
               onClick={resetForms}
               disabled={depositLoading}
             >
@@ -931,7 +956,7 @@ const UPI = () => {
     );
   };
 
-  const renderIncomingRequests = () => {
+  const renderIncomingRequests = () => { 
     if (!showIncomingRequests) return null;
     
     return (
@@ -943,13 +968,13 @@ const UPI = () => {
               <div key={request.id} className="incoming-request-item">
                 <div className="request-details">
                   <div className="request-from">
-                    From: <span>{request.senderName}</span>
+                    From: <span>{request.senderName || 'Unknown'}</span>
                   </div>
                   <div className="request-upi-id">
                     UPI ID: <span>{request.senderUpiId}</span>
                   </div>
                   <div className="request-amount">
-                    Amount: <span>{request.currency === 'inr' ? `₹${request.amount}` : `${request.amount} ${request.currency.toUpperCase()}`}</span>
+                    Amount: <span className="amount-value">{request.currency === 'inr' ? `₹${request.amount.toFixed(2)}` : `${request.amount} ${request.currency.toUpperCase()}`}</span>
                   </div>
                   <div className="request-time">
                     {new Date(request.timestamp).toLocaleString()}
@@ -975,8 +1000,8 @@ const UPI = () => {
         {errorMessage && <div className="error-message">{errorMessage}</div>}
         <div className="form-actions">
           <button 
-            type="button" 
-            className="cancel-btn" 
+            type="button"
+            className="cancel-btn"
             onClick={resetForms}
           >
             Close
@@ -998,7 +1023,7 @@ const UPI = () => {
     );
   };
 
-  const renderUpiId = () => {
+  const renderUpiId = () => { 
     if (kycStatus !== 'verified') {
       return (
         <div className="upi-verification-required">
@@ -1009,7 +1034,6 @@ const UPI = () => {
     }
 
     const upiId = walletData?.upiWallet?.upiId || null;
-    
     if (!upiId) {
       return (
         <div className="upi-generation-required">
@@ -1027,7 +1051,7 @@ const UPI = () => {
     );
   };
 
-  const renderKycStatus = () => {
+  const renderKycStatus = () => { 
     let statusText, statusClass;
     
     switch (kycStatus) {
@@ -1055,11 +1079,11 @@ const UPI = () => {
     );
   };
 
-  if (loading) {
+  if (loading) { 
     return <div className="loading">Loading UPI services...</div>;
   }
 
-  if (error) {
+  if (error) { 
     return <div className="error">{error}</div>;
   }
 
@@ -1171,7 +1195,6 @@ const UPI = () => {
           {renderMoneyForm()}
           {renderDepositForm()}
           {renderIncomingRequests()}
-          
           {!showSendForm && !showRequestForm && !showDepositForm && !showIncomingRequests && (
             <div className="upi-info">
               {activeTab === 'fiat' ? (

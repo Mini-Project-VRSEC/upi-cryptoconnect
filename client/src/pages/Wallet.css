@@ -285,3 +285,64 @@
     content: "💰";
     margin-right: 0.5rem;
   }
+
+  /* Add these styles at the end of your Wallet.css file */
+
+  .transactions-section {
+    margin-top: 30px;
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  }
+
+  .transactions-list {
+    margin-top: 15px;
+  }
+
+  .transaction-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid #eee;
+    position: relative;
+  }
+
+  .transaction-item:last-child {
+    border-bottom: none;
+  }
+
+  .tx-type {
+    text-transform: capitalize;
+    font-weight: 500;
+  }
+
+  .tx-amount {
+    font-weight: bold;
+  }
+
+  .tx-date {
+    color: #777;
+    font-size: 0.9em;
+  }
+
+  .local-tx {
+    background-color: #f9f9f9;
+  }
+
+  .local-badge {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: #ffd700;
+    color: #333;
+    font-size: 0.7em;
+    padding: 2px 6px;
+    border-radius: 10px;
+  }
+
+  .no-transactions {
+    text-align: center;
+    padding: 20px;
+    color: #888;
+  }

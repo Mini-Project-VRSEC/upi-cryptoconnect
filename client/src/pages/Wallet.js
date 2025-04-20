@@ -101,6 +101,7 @@ const Wallet = () => {
       if (!token) return;
 
       const data = await transactionService.getTransactions(token);
+      console.log('Fetched transactions:', data);
       setTransactions(data);
     } catch (error) {
       console.error('Error fetching transactions:', error);
@@ -113,15 +114,24 @@ const Wallet = () => {
       const token = localStorage.getItem('userToken');
       if (!token) return false;
 
+      // Get user data for required fields
+      const userDataStr = localStorage.getItem('userData');
+      const userData = JSON.parse(userDataStr || '{}');
+      const currentUserUpiId = userData.email?.replace('@', '') + '@cryptoconnect';
+      
       const transactionData = {
         type,
-        currency, // No need to transform here, we'll handle case in the backend
+        currency,
         amount: parseFloat(amount),
         network: currency.toLowerCase() === 'inr' ? 'UPI' : 'Ethereum',
+        recipientUpiId: currentUserUpiId,
+        recipient: userData._id || userData.id,
         ...details
       };
 
-      await transactionService.createTransaction(token, transactionData);
+      console.log('Creating transaction with:', transactionData);
+      
+      const result = await transactionService.createTransaction(token, transactionData);
       
       // Refresh transactions list
       fetchTransactions();
@@ -183,12 +193,21 @@ const Wallet = () => {
         throw new Error('Conversion rate not available');
       }
 
+      // Get user data for required fields
+      const userDataStr = localStorage.getItem('userData');
+      const userData = JSON.parse(userDataStr || '{}');
+      const currentUserUpiId = userData.email?.replace('@', '') + '@cryptoconnect';
+
       // Create transaction records (one for withdrawal, one for deposit)
       const withdrawalSuccess = await createNewTransaction(
         'exchange',
         fromCurrency,
         amount,
-        { exchangeTo: toCurrency }
+        { 
+          exchangeTo: toCurrency,
+          recipientUpiId: currentUserUpiId,
+          recipient: userData._id
+        }
       );
 
       if (withdrawalSuccess) {
@@ -196,7 +215,11 @@ const Wallet = () => {
           'exchange',
           toCurrency,
           convertedAmount,
-          { exchangeFrom: fromCurrency }
+          { 
+            exchangeFrom: fromCurrency,
+            recipientUpiId: currentUserUpiId,
+            recipient: userData._id
+          }
         );
       }
 
@@ -263,11 +286,20 @@ const Wallet = () => {
     });
 
     try {
-      // Create transaction record
+      // Get user UPI ID
+      const userDataStr = localStorage.getItem('userData');
+      const userData = JSON.parse(userDataStr || '{}');
+      const currentUserUpiId = userData.email?.replace('@', '') + '@cryptoconnect';
+      
+      // Create transaction record with required fields
       const success = await createNewTransaction(
         'deposit',
         depositData.currency,
-        depositData.amount
+        depositData.amount,
+        { 
+          recipientUpiId: currentUserUpiId, // Add the required recipientUpiId field
+          recipient: userData._id // Add MongoDB ObjectId of user
+        }
       );
 
       if (success) {
@@ -350,12 +382,21 @@ const Wallet = () => {
     });
 
     try {
-      // Create transaction record
+      // Get user UPI ID
+      const userDataStr = localStorage.getItem('userData');
+      const userData = JSON.parse(userDataStr || '{}');
+      const currentUserUpiId = userData.email?.replace('@', '') + '@cryptoconnect';
+      
+      // Create transaction record with required fields
       const success = await createNewTransaction(
         'withdrawal',
         withdrawData.currency,
         withdrawData.amount,
-        { destinationAddress: withdrawData.address }
+        { 
+          destinationAddress: withdrawData.address,
+          recipientUpiId: currentUserUpiId, // Add the required recipientUpiId field
+          recipient: userData._id // Add MongoDB ObjectId of user
+        }
       );
 
       if (success) {
@@ -384,6 +425,33 @@ const Wallet = () => {
     }
   };
 
+  const renderTransactions = () => {
+    if (!transactions || transactions.length === 0) {
+      return (
+        <div className="no-transactions">
+          <p>No transactions found</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="transactions-list">
+        {transactions.map(tx => (
+          <div key={tx._id || `tx-${Date.now()}-${Math.random()}`} className="transaction-item">
+            <div className="tx-type">{tx.type}</div>
+            <div className="tx-amount">
+              {tx.type === 'deposit' ? '+' : tx.type === 'withdrawal' ? '-' : ''}
+              {tx.amount} {tx.currency?.toUpperCase()}
+            </div>
+            <div className="tx-date">
+              {new Date(tx.timestamp || tx.createdAt || Date.now()).toLocaleDateString()}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="wallet">
       <div className="wallet-container">
@@ -409,6 +477,12 @@ const Wallet = () => {
             >
               Withdraw
             </button>
+            <button
+              className={`wallet-tab ${activeTab === 'transactions' ? 'active' : ''}`}
+              onClick={() => setActiveTab('transactions')}
+            >
+              Transactions
+            </button>
           </div>
 
           <div className="wallet-content">
@@ -421,12 +495,10 @@ const Wallet = () => {
                     <div className="balance-label">INR Balance</div>
                     <div className="balance-value">₹{walletData.inr.toLocaleString()}</div>
                   </div>
-
                   <div className="balance-item">
                     <div className="balance-label">Bitcoin (BTC)</div>
                     <div className="balance-value">{walletData.btc} BTC</div>
                   </div>
-
                   <div className="balance-item">
                     <div className="balance-label">Ethereum (ETH)</div>
                     <div className="balance-value">{walletData.eth} ETH</div>
@@ -476,11 +548,9 @@ const Wallet = () => {
                       />
                     </div>
                   </div>
-
                   {conversionData.error && (
                     <div className="error-message mt-2">{conversionData.error}</div>
                   )}
-
                   {conversionData.result && (
                     <div className="conversion-result">
                       <h4>Conversion Result</h4>
@@ -490,7 +560,6 @@ const Wallet = () => {
                       </p>
                     </div>
                   )}
-
                   <button
                     className="convert-button"
                     onClick={handleConvert}
@@ -498,6 +567,11 @@ const Wallet = () => {
                   >
                     {conversionData.loading ? 'Converting...' : 'Convert Now'}
                   </button>
+                </div>
+
+                <div className="transactions-section">
+                  <h3>Recent Transactions</h3>
+                  {renderTransactions()}
                 </div>
               </div>
             )}
@@ -655,6 +729,13 @@ const Wallet = () => {
                     )}
                   </ul>
                 </div>
+              </div>
+            )}
+
+            {activeTab === 'transactions' && (
+              <div>
+                <h2>Your Transactions</h2>
+                {renderTransactions()}
               </div>
             )}
           </div>

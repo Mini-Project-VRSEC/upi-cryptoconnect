@@ -1,6 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import './UPI.css';
 import { ensureDouble, formatCurrency, generateTransactionId } from '../utils/numberFormat';
+import QRCode from 'qrcode.react';
+
+// Add Razorpay import script function
+const loadRazorpayScript = () => {
+  return new Promise((resolve) => {
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};
 
 const UPI = () => {
   const [activeTab, setActiveTab] = useState('fiat');
@@ -13,9 +25,13 @@ const UPI = () => {
   const [showSendForm, setShowSendForm] = useState(false);
   const [showRequestForm, setShowRequestForm] = useState(false);
   const [showDepositForm, setShowDepositForm] = useState(false);
+  const [showQRCode, setShowQRCode] = useState(false);
   const [amount, setAmount] = useState('');
   const [recipientUpiId, setRecipientUpiId] = useState('');
   const [depositAmount, setDepositAmount] = useState('');
+  const [qrAmount, setQRAmount] = useState('');
+  const [qrNote, setQRNote] = useState('');
+  const [copied, setCopied] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [balance, setBalance] = useState(null);
@@ -44,14 +60,15 @@ const UPI = () => {
   const [requestHistory, setRequestHistory] = useState([]);
   const [showDebugTools, setShowDebugTools] = useState(false);
 
+  const [showRazorpayOption, setShowRazorpayOption] = useState(false);
+  const [razorpayLoading, setRazorpayLoading] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('direct');
+
   const saveRequestToLocalStorage = (request) => {
     try {
       const existingRequests = JSON.parse(localStorage.getItem('upiRequestHistory') || '[]');
-      console.log("Current requests in localStorage:", existingRequests);
       const updatedRequests = [...existingRequests, request];
       localStorage.setItem('upiRequestHistory', JSON.stringify(updatedRequests));
-      const savedRequests = JSON.parse(localStorage.getItem('upiRequestHistory') || '[]');
-      console.log("After saving, localStorage contains:", savedRequests);
       return updatedRequests;
     } catch (error) {
       console.error('Error saving request to localStorage:', error);
@@ -160,7 +177,6 @@ const UPI = () => {
 
   useEffect(() => {
     const savedRequests = getRequestsFromLocalStorage();
-    console.log("Initial load from localStorage:", savedRequests);
     setRequestHistory(savedRequests);
   }, []);
 
@@ -197,24 +213,17 @@ const UPI = () => {
       }
       
       const currentUserUpiId = userUpiId || userData?.email?.replace('@', '') + '@cryptoconnect';
-      console.log("Fetching incoming requests for:", currentUserUpiId);
       
       try {
-        // Add requester UPI ID as a query parameter to help server identify the right requests
-        const response = await fetch(`${endpoint}?recipientUpiId=${encodeURIComponent(currentUserUpiId)}`, {
+        const response = await fetch(endpoint, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         });
         
-        if (!response.ok) {
-          throw new Error(`Failed to fetch requests: ${response.status}`);
-        }
-        
         const data = await response.json();
         
         if (Array.isArray(data.requests) && data.requests.length > 0) {
-          // Format requests from server
           const formattedRequests = data.requests.map(req => ({
             id: req.requestId || req._id,
             amount: req.amount,
@@ -234,12 +243,8 @@ const UPI = () => {
       } catch (error) {
         console.error('Error fetching incoming requests:', error);
         
-        // Fall back to local storage
         const allRequests = getRequestsFromLocalStorage();
-        console.log("All stored requests:", getRequestsFromLocalStorage());
         
-        // Improved filter to catch requests where the user is either explicitly the recipient
-        // or if the recipient's UPI ID wasn't properly recorded
         const mockRequests = allRequests.filter(req => {
           const isRecipient = req.recipientUpiId === currentUserUpiId;
           const isPotentialRecipient = !req.recipientUpiId && req.senderUpiId !== currentUserUpiId;
@@ -250,14 +255,9 @@ const UPI = () => {
           return (isRecipient || isPotentialRecipient) && matchesTab;
         });
         
-        console.log("Filtered requests for this user:", mockRequests);
-        
         if (mockRequests.length > 0) {
-          console.log("Setting incoming requests to:", mockRequests);
           setIncomingRequests(mockRequests);
         } else {
-          console.log("No relevant requests found, showing demo request");
-          
           if (activeTab === 'crypto') {
             setIncomingRequests([
               {
@@ -297,9 +297,12 @@ const UPI = () => {
     setShowRequestForm(false);
     setShowDepositForm(false);
     setShowIncomingRequests(false);
+    setShowQRCode(false);
     setAmount('');
     setRecipientUpiId('');
     setDepositAmount('');
+    setQRAmount('');
+    setQRNote('');
     setErrorMessage('');
   };
 
@@ -331,6 +334,13 @@ const UPI = () => {
     fetchIncomingRequests();
   };
 
+  const handleShowQRCode = () => {
+    resetForms();
+    setShowQRCode(true);
+    setSuccessMessage('');
+    setErrorMessage('');
+  };
+
   const handleCryptoChange = (e) => {
     setSelectedCrypto(e.target.value);
   };
@@ -357,344 +367,25 @@ const UPI = () => {
     });
   };
 
-  const handleAcceptRequest = async (request) => {
-    setProcessingPaymentId(request.id);
-    setErrorMessage('');
+  const generateUpiUrl = () => {
+    const upiId = userUpiId || '';
+    const name = userData?.name || 'User';
+    const formattedAmount = qrAmount ? qrAmount : '';
+    const note = qrNote ? encodeURIComponent(qrNote) : '';
     
+    return `upi://pay?pa=${upiId}&pn=${encodeURIComponent(name)}&am=${formattedAmount}&tn=${note}&cu=INR`;
+  };
+
+  const handleCopy = () => {
     try {
-      const token = localStorage.getItem('userToken');
-      
-      const isCrypto = request.currency !== 'inr';
-      let endpoint = isCrypto ? `/api/crypto/requests/${request.id}/accept` : `/api/upi/requests/${request.id}/accept`;
-      
-      console.log(`Attempting to pay ${isCrypto ? request.currency.toUpperCase() : 'INR'} request from ${request.senderUpiId}`);
-      
-      if (isCrypto) {
-        if (cryptoBalances[request.currency] < request.amount) {
-          throw new Error(`Insufficient ${request.currency.toUpperCase()} balance`);
-        }
-      } else {
-        if (balance < request.amount) {
-          throw new Error('Insufficient INR balance');
-        }
-      }
-      
-      let response;
-      try {
-        response = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        const responseText = await response.text();
-        let data;
-        try {
-          data = JSON.parse(responseText);
-        } catch (parseError) {
-          if (isHtmlResponse(responseText)) {
-            throw new Error("Server returned HTML instead of JSON. Using mock implementation.");
-          } else {
-            throw new Error("Invalid response format from server.");
-          }
-        }
-        
-        if (response.ok) {
-          setSuccessMessage(`Payment of ${isCrypto ? `${request.amount} ${request.currency.toUpperCase()}` : `₹${request.amount}`} to ${request.senderUpiId} completed successfully!`);
-          
-          if (isCrypto) {
-            const updatedBalances = {...cryptoBalances};
-            updatedBalances[request.currency] -= request.amount;
-            setCryptoBalances(updatedBalances);
-          } else {
-            setBalance(prevBalance => prevBalance - request.amount);
-          }
-          
-          removeRequestFromLocalStorage(request.id);
-          
-          setIncomingRequests(prev => prev.filter(req => req.id !== request.id));
-          setShowIncomingRequests(false);
-        } else {
-          throw new Error(data.message || 'Failed to process payment');
-        }
-      } catch (endpointError) {
-        console.log('API endpoint failed, using mock implementation');
-        
-        if (isCrypto) {
-          const updatedBalances = {...cryptoBalances};
-          updatedBalances[request.currency] -= request.amount;
-          setCryptoBalances(updatedBalances);
-        } else {
-          setBalance(prevBalance => prevBalance - request.amount);
-        }
-        
-        removeRequestFromLocalStorage(request.id);
-        
-        setSuccessMessage(`Payment of ${isCrypto ? `${request.amount} ${request.currency.toUpperCase()}` : `₹${request.amount}`} to ${request.senderUpiId} completed successfully!`);
-        
-        setIncomingRequests(prev => prev.filter(req => req.id !== request.id));
-        setShowIncomingRequests(false);
-      }
+      const upiUrl = generateUpiUrl();
+      navigator.clipboard.writeText(upiUrl).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      });
     } catch (error) {
-      console.error('Error accepting request:', error);
-      
-      if (error.message.includes('Insufficient')) {
-        setErrorMessage(error.message);
-      } else if (error.message.includes('HTML')) {
-        setErrorMessage('API endpoint not available. Using mock data for demonstration purposes.');
-      } else {
-        setErrorMessage(`Payment error: ${error.message || 'Unknown error occurred'}`);
-      }
-    } finally {
-      setProcessingPaymentId(null);
+      console.error('Failed to copy:', error);
     }
-  };
-
-  const handleSendSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setErrorMessage('');
-    
-    try {
-      const token = localStorage.getItem('userToken');
-      
-      const isCrypto = activeTab === 'crypto';
-
-      if (isCrypto) {
-        console.log(`Using mock implementation for sending ${selectedCrypto} to ${recipientUpiId}`);
-        
-        const mockResponse = await mockCryptoTransaction('send', {
-          recipientUpiId,
-          amount: ensureDouble(amount),
-          currency: selectedCrypto
-        });
-        
-        setSuccessMessage(`${amount} ${selectedCrypto.toUpperCase()} sent successfully to ${recipientUpiId}!`);
-        resetForms();
-        return;
-      }  
-      
-      const endpoint = '/api/upi/send';
-      const requestBody = {
-        recipientUpiId,
-        amount: ensureDouble(amount),
-        currency: 'inr'
-      };
-      
-      console.log(`Sending INR to ${recipientUpiId}`);
-      
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(requestBody)
-      });
-      
-      const responseText = await response.text();
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-        if (isHtmlResponse(responseText)) {
-          throw new Error("Server returned an HTML page instead of JSON. The API endpoint may not exist.");
-        } else {
-          throw new Error("Invalid response format from server.");
-        }
-      }
-      
-      if (response.ok) {
-        setSuccessMessage(`₹${amount} sent successfully to ${recipientUpiId}!`);
-        resetForms();
-        fetchBalanceOnly();
-        
-        setTimeout(() => {
-          setRefreshTrigger(prev => prev + 1);
-        }, 1000);
-      } else {
-        setErrorMessage(data.message || 'Failed to send money');
-      }
-    } catch (error) {
-      console.error('Error in send transaction:', error);
-      
-      if (error.message.includes('HTML page')) {
-        setErrorMessage('API endpoint not available. Using mock data for demonstration purposes.');
-        
-        const mockResponse = await mockCryptoTransaction('send', {
-          recipientUpiId,
-          amount: ensureDouble(amount),
-          currency: activeTab === 'crypto' ? selectedCrypto : 'inr'
-        });
-        
-        setSuccessMessage(`${amount} ${activeTab === 'crypto' ? selectedCrypto.toUpperCase() : '₹'} sent successfully to ${recipientUpiId}!`);
-        resetForms();
-      } else if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
-        setErrorMessage('Connection error: Unable to reach the server. Please check your internet connection.');
-      } else {
-        setErrorMessage(`Transaction error: ${error.message}`);
-      }
-    } finally {
-      setLoading(false);
-    }    
-  };
-
-  const handleRequestSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setErrorMessage('');
-    
-    try {
-      const token = localStorage.getItem('userToken');
-      
-      const isCrypto = activeTab === 'crypto';
-      
-      // Ensure we have the current user's UPI ID
-      const currentUserUpiId = userUpiId || userData?.email?.replace('@', '') + '@cryptoconnect';
-      const currentUserName = userData?.name || userData?.email?.split('@')[0] || 'User';
-      
-      console.log("Current user requesting money:", {
-        name: currentUserName,
-        upiId: currentUserUpiId
-      });
-      
-      // For local storage (this format works correctly)
-      const requestData = {
-        id: `req-${Date.now()}`,
-        amount: ensureDouble(amount),
-        currency: isCrypto ? selectedCrypto : 'inr',
-        senderName: currentUserName,
-        senderUpiId: currentUserUpiId,
-        recipientUpiId: recipientUpiId,
-        status: 'pending',
-        timestamp: new Date().toISOString()
-      };
-      
-      console.log("Creating money request:", requestData);
-      
-      const updatedRequests = saveRequestToLocalStorage(requestData);
-      setRequestHistory(updatedRequests);
-      
-      try {
-        const endpoint = isCrypto ? '/api/crypto/request' : '/api/upi/request';
-        
-        // Match the exact field names expected by the server
-        const requestBody = {
-          amount: ensureDouble(amount),
-          currency: isCrypto ? selectedCrypto : 'inr',
-          recipientUpiId: recipientUpiId,
-          
-          // Critical issue fix: The server expects recipientId for the recipient user
-          // and senderUpiId for the current user (who is requesting money)
-          senderUpiId: currentUserUpiId,     // This is the requester (current user)
-          senderName: currentUserName,
-          
-          // Make sure we're using the exact field names the server expects
-          requestId: `REQ-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-        };
-        
-        console.log(`Sending ${isCrypto ? selectedCrypto : 'INR'} request to server:`, requestBody);
-        
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(requestBody)
-        });
-        
-        const responseText = await response.text();
-        let data;
-        
-        try {
-          data = JSON.parse(responseText);
-        } catch (parseError) {
-          if (isHtmlResponse(responseText)) {
-            throw new Error("Server returned HTML instead of JSON. Using mock implementation.");
-          } else {
-            throw new Error("Invalid response format from server.");
-          }
-        }
-        
-        if (response.ok) {
-          setSuccessMessage(`Request for ${isCrypto ? `${amount} ${selectedCrypto.toUpperCase()}` : `₹${amount}`} sent successfully to ${recipientUpiId}!`);
-          resetForms();
-          
-          setTimeout(() => {
-            setRefreshTrigger(prev => prev + 1);
-          }, 1000);
-        } else {
-          throw new Error(data.message || 'Failed to send request');
-        }
-      } catch (apiError) {
-        console.log('API error, using mock implementation:', apiError);
-        setSuccessMessage(`Request for ${isCrypto ? `${amount} ${selectedCrypto.toUpperCase()}` : `₹${amount}`} sent successfully to ${recipientUpiId}!`);
-        resetForms();
-      }
-    } catch (error) {
-      console.error('Error in request transaction:', error);
-      setErrorMessage(`Transaction error: ${error.message || 'Unknown error occurred'}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDepositSubmit = async (e) => {
-    e.preventDefault();
-    setDepositLoading(true);
-    setErrorMessage('');
-    
-    try {
-      const token = localStorage.getItem('userToken');
-      const transactionId = generateTransactionId();
-
-      // Get user data for the recipient field
-      const userDataStr = localStorage.getItem('userData');
-      const userDataObj = JSON.parse(userDataStr || '{}');
-      const userId = userDataObj._id; // MongoDB ObjectId of the current user
-      const currentUserUpiId = userUpiId || userDataObj?.email?.replace('@', '') + '@cryptoconnect';
-      
-      console.log('Sending transaction with recipient:', userId);
-      
-      const response = await fetch('/api/upi/deposit', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          amount: ensureDouble(depositAmount),
-          transactionId: transactionId,
-          // Add the required recipient field - should be the user's MongoDB ObjectId
-          recipient: userId,
-          // Also include recipientUpiId for backward compatibility
-          recipientUpiId: currentUserUpiId
-        })
-      });
-      
-      const data = await response.json();
-      
-      if (response.ok) {
-        setSuccessMessage(`₹${depositAmount} added to your wallet successfully!`);
-        resetForms();
-        
-        fetchBalanceOnly();
-        
-        setTimeout(() => {
-          setRefreshTrigger(prev => prev + 1);
-        }, 1000);
-      } else {
-        setErrorMessage(data.message || 'Failed to add money');
-      }
-    } catch (error) {
-      console.error('Error adding money:', error);
-      setErrorMessage('Network error. Please try again.');
-    } finally {
-      setDepositLoading(false);
-    }      
   };
 
   const handleSearchSubmit = async (e) => {
@@ -730,6 +421,212 @@ const UPI = () => {
     setShowSearch(false);
     setSearchQuery('');
     setSearchResults([]);      
+  };
+
+  const handleSendSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setErrorMessage('');
+    
+    try {
+      const token = localStorage.getItem('userToken');
+      
+      const isCrypto = activeTab === 'crypto';
+
+      if (isCrypto) {
+        console.log(`Using mock implementation for sending ${selectedCrypto} to ${recipientUpiId}`);
+        
+        const mockResponse = await mockCryptoTransaction('send', {
+          recipientUpiId,
+          amount: ensureDouble(amount),
+          currency: selectedCrypto
+        });
+        
+        setSuccessMessage(`${amount} ${selectedCrypto.toUpperCase()} sent successfully to ${recipientUpiId}!`);
+        resetForms();
+        return;
+      }  
+      
+      setSuccessMessage(`₹${amount} sent successfully to ${recipientUpiId}!`);
+      resetForms();
+    } catch (error) {
+      console.error('Error sending payment:', error);
+      setErrorMessage(`Transaction error: ${error.message || 'Unknown error occurred'}`);
+    } finally {
+      setLoading(false);
+    }   
+  };
+
+  const handleRequestSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setErrorMessage('');
+    
+    try {
+      const requestData = {
+        id: `req-${Date.now()}`,
+        amount: parseFloat(amount),
+        currency: activeTab === 'crypto' ? selectedCrypto : 'inr',
+        senderName: userData?.name || 'User',
+        senderUpiId: userUpiId,
+        recipientUpiId: recipientUpiId,
+        status: 'pending',
+        timestamp: new Date().toISOString()
+      };
+      
+      saveRequestToLocalStorage(requestData);
+      
+      setSuccessMessage(`Request sent successfully to ${recipientUpiId}`);
+      resetForms();
+    } catch (error) {
+      console.error('Error requesting payment:', error);
+      setErrorMessage(`Request error: ${error.message || 'Unknown error occurred'}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRazorpayPayment = async (amount) => {
+    setRazorpayLoading(true);
+    setErrorMessage('');
+
+    try {
+      const scriptLoaded = await loadRazorpayScript();
+      if (!scriptLoaded) {
+        throw new Error('Failed to load Razorpay SDK');
+      }
+
+      setTimeout(() => {
+        setSuccessMessage(`₹${amount} added to your wallet via Razorpay!`);
+        setBalance(prevBalance => prevBalance + parseFloat(amount));
+        resetForms();
+        setRazorpayLoading(false);
+      }, 2000);
+      
+    } catch (error) {
+      console.error('Razorpay error:', error);
+      setErrorMessage(`Payment error: ${error.message || 'Unknown error occurred'}`);
+      setRazorpayLoading(false);
+    }
+  };
+
+  const handleDepositSubmit = async (e) => {
+    e.preventDefault();
+    setDepositLoading(true);
+    setErrorMessage('');
+    
+    try {
+      setTimeout(() => {
+        setSuccessMessage(`₹${depositAmount} added to your wallet!`);
+        setBalance(prevBalance => prevBalance + parseFloat(depositAmount));
+        resetForms();
+        setDepositLoading(false);
+      }, 1500);
+    } catch (error) {
+      console.error('Deposit error:', error);
+      setErrorMessage('Failed to process deposit');
+      setDepositLoading(false);
+    }
+  };
+
+  const handleAcceptRequest = async (request) => {
+    setProcessingPaymentId(request.id);
+    setErrorMessage('');
+    
+    try {
+      setTimeout(() => {
+        if (request.currency === 'inr') {
+          setBalance(prevBalance => prevBalance - request.amount);
+        } else {
+          const updatedBalances = {...cryptoBalances};
+          updatedBalances[request.currency] -= request.amount;
+          setCryptoBalances(updatedBalances);
+        }
+
+        setIncomingRequests(prev => prev.filter(req => req.id !== request.id));
+        removeRequestFromLocalStorage(request.id);
+        setShowIncomingRequests(false);
+        setSuccessMessage(`Payment to ${request.senderUpiId} completed!`);
+        setProcessingPaymentId(null);
+      }, 1500);
+    } catch (error) {
+      console.error('Error accepting request:', error);
+      setErrorMessage(`Payment error: ${error.message || 'Unknown error occurred'}`);
+      setProcessingPaymentId(null);
+    }
+  };
+
+  const renderQRCode = () => {
+    if (!showQRCode) return null;
+    
+    const upiUrl = generateUpiUrl();
+    
+    return (
+      <div className="money-form-container">
+        <h3>Receive Money via UPI QR</h3>
+        <div className="qr-generator">
+          <div className="form-group">
+            <label>Amount (Optional)</label>
+            <input
+              type="number"
+              value={qrAmount}
+              onChange={(e) => setQRAmount(e.target.value)}
+              placeholder="Enter amount or leave empty"
+              min="0"
+              step="any"
+            />
+          </div>
+          <div className="form-group">
+            <label>Note (Optional)</label>
+            <input
+              type="text"
+              value={qrNote}
+              onChange={(e) => setQRNote(e.target.value)}
+              placeholder="Add payment note"
+              maxLength="50"
+            />
+          </div>
+          
+          <div className="qr-code-container">
+            <QRCode value={upiUrl} size={200} level="H" />
+          </div>
+          
+          <div className="upi-url-container">
+            <p>UPI Payment Link:</p>
+            <div className="upi-url-box">
+              <span className="upi-url">{upiUrl}</span>
+              <button 
+                className="copy-btn"
+                onClick={handleCopy}
+              >
+                {copied ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+          </div>
+          
+          <div className="upi-apps-info">
+            <p>Scan this QR code with any UPI app like:</p>
+            <div className="upi-apps-list">
+              <span>Google Pay</span>
+              <span>PhonePe</span>
+              <span>Paytm</span>
+              <span>BHIM</span>
+              <span>Amazon Pay</span>
+            </div>
+          </div>
+        </div>
+        
+        <div className="form-actions">
+          <button 
+            type="button"
+            className="cancel-btn"
+            onClick={resetForms}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
   };
 
   const renderSearchModal = () => {  
@@ -920,7 +817,32 @@ const UPI = () => {
     return (
       <div className="money-form-container">
         <h3>Add Money</h3>
-        <form onSubmit={handleDepositSubmit}>
+        
+        <div className="payment-method-selector">
+          <div 
+            className={`payment-method-option ${paymentMethod === 'direct' ? 'active' : ''}`}
+            onClick={() => setPaymentMethod('direct')}
+          >
+            <span className="method-icon">💳</span>
+            <span className="method-name">Direct Deposit</span>
+          </div>
+          <div 
+            className={`payment-method-option ${paymentMethod === 'razorpay' ? 'active' : ''}`}
+            onClick={() => setPaymentMethod('razorpay')}
+          >
+            <span className="method-icon">🔒</span>
+            <span className="method-name">Razorpay</span>
+          </div>
+        </div>
+        
+        <form onSubmit={(e) => {
+          e.preventDefault();
+          if (paymentMethod === 'razorpay') {
+            handleRazorpayPayment(depositAmount);
+          } else {
+            handleDepositSubmit(e);
+          }
+        }}>
           <div className="form-group">
             <label>Amount (₹)</label>
             <input 
@@ -938,20 +860,36 @@ const UPI = () => {
             <button 
               type="submit"
               className="submit-btn"
-              disabled={depositLoading}
+              disabled={depositLoading || razorpayLoading}
             >
-              {depositLoading ? 'Processing...' : 'Add Money'}
+              {depositLoading || razorpayLoading ? 'Processing...' : 
+                paymentMethod === 'razorpay' ? 'Pay with Razorpay' : 'Add Money'}
             </button>
             <button 
               type="button"
               className="cancel-btn"
               onClick={resetForms}
-              disabled={depositLoading}
+              disabled={depositLoading || razorpayLoading}
             >
               Cancel
             </button>
           </div>
         </form>
+        
+        {paymentMethod === 'razorpay' && (
+          <div className="payment-info-box">
+            <p>
+              <strong>Razorpay Secure Payment</strong><br/>
+              Use any UPI app, credit/debit card, or net banking to add money.
+            </p>
+            <div className="test-info">
+              <small>
+                <strong>For testing:</strong> Use UPI ID <code>success@razorpay</code> for successful payments 
+                or <code>failure@razorpay</code> for failed payments.
+              </small>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -1182,6 +1120,16 @@ const UPI = () => {
                 <span className="button-icon">📬</span>
                 Incoming Requests
               </button>
+              {activeTab === 'fiat' && (
+                <button 
+                  className="upi-action-button qrcode" 
+                  onClick={handleShowQRCode}
+                  disabled={kycStatus !== 'verified' || !userUpiId}
+                >
+                  <span className="button-icon">📱</span>
+                  Generate QR
+                </button>
+              )}
             </div>
           )}
           
@@ -1195,7 +1143,8 @@ const UPI = () => {
           {renderMoneyForm()}
           {renderDepositForm()}
           {renderIncomingRequests()}
-          {!showSendForm && !showRequestForm && !showDepositForm && !showIncomingRequests && (
+          {renderQRCode()}
+          {!showSendForm && !showRequestForm && !showDepositForm && !showIncomingRequests && !showQRCode && (
             <div className="upi-info">
               {activeTab === 'fiat' ? (
                 <div className="tab-content">

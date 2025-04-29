@@ -61,6 +61,9 @@ const Header = () => {
               <Link to="/blockchain" className={`nav-link ${isActive('/blockchain') ? 'active' : ''}`}>
                 Blockchain
               </Link>
+              <Link to="/upi-blockchain" className={`nav-link ${isActive('/upi-blockchain') ? 'active' : ''}`}>
+                UPI-Blockchain
+              </Link>
             </>
           ) : (
             <>
@@ -142,6 +145,9 @@ const Header = () => {
               </Link>
               <Link to="/blockchain" className={`nav-link ${isActive('/blockchain') ? 'active' : ''}`}>
                 Blockchain
+              </Link>
+              <Link to="/upi-blockchain" className={`nav-link ${isActive('/upi-blockchain') ? 'active' : ''}`}>
+                UPI-Blockchain
               </Link>
               <button className="logout-btn" onClick={handleLogout}>
                 Logout

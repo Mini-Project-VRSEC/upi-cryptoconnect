@@ -20,6 +20,7 @@ import LearnMore from './pages/LearnMore';
 import KYC from './pages/KYC';
 import UPI from './pages/UPI';
 import Blockchain from './pages/Blockchain'; // Import the Blockchain component
+import UPIBlockchain from './pages/UPIBlockchain'; // Import the UPIBlockchain component
 
 function App() {
   return (
@@ -60,6 +61,9 @@ function App() {
             
             {/* Blockchain Page */}
             <Route path="/blockchain" element={<Blockchain />} /> {/* Add Blockchain route */}
+            
+            {/* UPIBlockchain Page */}
+            <Route path="/upi-blockchain" element={<UPIBlockchain />} /> {/* Add UPIBlockchain route */}
             
             {/* 404 Page */}
             <Route path="*" element={<NotFound />} />

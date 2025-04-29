@@ -21,6 +21,7 @@
     "axios": "^1.8.4",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
+    "crypto": "^1.0.1",
     "crypto-js": "^4.2.0",
     "dotenv": "^16.5.0",
     "ethers": "^6.13.7",
@@ -29,7 +30,9 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.13.2",
     "multer": "^1.4.5-lts.2",
-    "sharp": "^0.34.1"
+    "razorpay": "^2.9.6",
+    "sharp": "^0.34.1",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"

@@ -8,7 +8,6 @@ const Header = () => {
   const location = useLocation();
   
   // Check if user is logged in (this would be replaced with actual auth logic)
-  // For testing purposes, you can set this to true to see the logged-in state
   const isLoggedIn = localStorage.getItem('userToken') ? true : false;
   
   // Function to check if a route is active
@@ -58,6 +57,9 @@ const Header = () => {
               </Link>
               <Link to="/upi" className={`nav-link ${isActive('/upi') ? 'active' : ''}`}>
                 UPI
+              </Link>
+              <Link to="/blockchain" className={`nav-link ${isActive('/blockchain') ? 'active' : ''}`}>
+                Blockchain
               </Link>
             </>
           ) : (
@@ -137,6 +139,9 @@ const Header = () => {
               </Link>
               <Link to="/upi" className={`nav-link ${isActive('/upi') ? 'active' : ''}`}>
                 UPI
+              </Link>
+              <Link to="/blockchain" className={`nav-link ${isActive('/blockchain') ? 'active' : ''}`}>
+                Blockchain
               </Link>
               <button className="logout-btn" onClick={handleLogout}>
                 Logout

@@ -18,7 +18,8 @@ import Transactions from './pages/Transactions';
 import NotFound from './pages/NotFound';
 import LearnMore from './pages/LearnMore';
 import KYC from './pages/KYC';
-import UPI from './pages/UPI'; // Import the UPI component
+import UPI from './pages/UPI';
+import Blockchain from './pages/Blockchain'; // Import the Blockchain component
 
 function App() {
   return (
@@ -55,7 +56,10 @@ function App() {
             <Route path="/kyc" element={<KYC />} />
             
             {/* UPI Page */}
-            <Route path="/upi" element={<UPI />} /> {/* Add UPI route */}
+            <Route path="/upi" element={<UPI />} />
+            
+            {/* Blockchain Page */}
+            <Route path="/blockchain" element={<Blockchain />} /> {/* Add Blockchain route */}
             
             {/* 404 Page */}
             <Route path="*" element={<NotFound />} />

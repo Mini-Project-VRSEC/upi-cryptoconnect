@@ -4,26 +4,29 @@
     "description": "A unified platform for fiat and cryptocurrency transactions",
     "main": "index.js",
     "scripts": {
-      "start": "node server/src/server.js",
-      "server": "nodemon server/src/server.js",
-      "client": "npm start --prefix client",
-      "dev": "concurrently \"npm run server\" \"npm run client\"",
-      "install-all": "npm install && npm install --prefix client && npm install --prefix server && npm install --prefix smart-contracts",
-      "setup-db": "node server/src/config/setupDb.js",
-      "test": "echo \"Error: no test specified\" && exit 1"
+        "start": "node server/src/server.js",
+        "server": "nodemon server/src/server.js",
+        "client": "npm start --prefix client",
+        "dev": "concurrently \"npm run server\" \"npm run client\"",
+        "install-all": "npm install && npm install --prefix client && npm install --prefix server && npm install --prefix smart-contracts",
+        "setup-db": "node server/src/config/setupDb.js",
+        "test": "echo \"Error: no test specified\" && exit 1"
     },
     "keywords": [
-      "upi",
-      "crypto",
-      "blockchain",
-      "payments",
-      "ethereum",
-      "aave"
+        "upi",
+        "crypto",
+        "blockchain",
+        "payments",
+        "ethereum",
+        "aave"
     ],
     "author": "Your Team",
     "license": "MIT",
     "devDependencies": {
-      "concurrently": "^8.0.1",
-      "nodemon": "^2.0.22"
+        "concurrently": "^8.0.1",
+        "nodemon": "^2.0.22"
+    },
+    "dependencies": {
+        "ethers": "^6.13.7"
     }
 }

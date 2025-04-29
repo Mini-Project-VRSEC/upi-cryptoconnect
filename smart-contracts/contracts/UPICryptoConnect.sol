@@ -9,7 +9,7 @@ contract UPICryptoConnect is Ownable, ReentrancyGuard {
     // Events
     event Deposit(address indexed user, uint256 amount);
     event Withdrawal(address indexed user, uint256 amount);
-    event PaymentSent(address indexed from, address indexed to, uint256 amount, string reference);
+    event PaymentSent(address indexed from, address indexed to, uint256 amount, string memo);
     
     // User balances mapping
     mapping(address => uint256) private balances;
@@ -20,7 +20,7 @@ contract UPICryptoConnect is Ownable, ReentrancyGuard {
         address to;
         uint256 amount;
         uint256 timestamp;
-        string reference;
+        string memo;
     }
     
     Transaction[] public transactions;
@@ -38,7 +38,7 @@ contract UPICryptoConnect is Ownable, ReentrancyGuard {
     }
     
     // Send payment
-    function sendPayment(address payable recipient, uint256 amount, string memory reference) public nonReentrant {
+    function sendPayment(address payable recipient, uint256 amount, string memory memo) public nonReentrant {
         require(recipient != address(0), "Invalid recipient address");
         require(amount > 0, "Payment amount must be greater than zero");
         require(balances[msg.sender] >= amount, "Insufficient balance");
@@ -51,10 +51,10 @@ contract UPICryptoConnect is Ownable, ReentrancyGuard {
             to: recipient,
             amount: amount,
             timestamp: block.timestamp,
-            reference: reference
+            memo: memo
         }));
         
-        emit PaymentSent(msg.sender, recipient, amount, reference);
+        emit PaymentSent(msg.sender, recipient, amount, memo);
     }
     
     // Withdraw funds
@@ -81,10 +81,10 @@ contract UPICryptoConnect is Ownable, ReentrancyGuard {
         address to,
         uint256 amount,
         uint256 timestamp,
-        string memory reference
+        string memory memo
     ) {
         require(index < transactions.length, "Transaction does not exist");
         Transaction storage txn = transactions[index];
-        return (txn.from, txn.to, txn.amount, txn.timestamp, txn.reference);
+        return (txn.from, txn.to, txn.amount, txn.timestamp, txn.memo);
     }
 }
